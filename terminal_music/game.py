@@ -2,7 +2,7 @@ __author__ = 'Cam'
 
 import time
 
-from terminal_music.clues import CluePool
+import clues
 
 
 class FlashcardGame(object):
@@ -14,7 +14,7 @@ class FlashcardGame(object):
 
         self._score = 0
         self._num_questions = num_questions
-        self._clue_pool = CluePool()
+        self._clue_pool = clues.CluePool()
 
     def play(self):
         """

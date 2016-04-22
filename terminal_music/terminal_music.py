@@ -3,7 +3,7 @@ __author__ = 'Cam'
 
 import argparse
 
-from terminal_music.game import FlashcardGame
+import game
 
 
 if __name__ == '__main__':
@@ -17,7 +17,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    fc_game = FlashcardGame(num_questions=args.n)
+    fc_game = game.FlashcardGame(num_questions=args.n)
     fc_game.play()
 
 
