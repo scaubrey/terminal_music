@@ -43,9 +43,13 @@ class NoteBaseClue(BaseClue):
 
         self._note_name = note_name
 
-        self._stem_len = None
-        self._stave_len = None
-        self._note_name = None
+        # Vertical length of note stem
+        self._stem_len = 3
+
+        # Width of printed note, should be even number
+        self._stave_len = 20
+
+        # Override for given clef
         self._note_stave_idx_map = None
 
     def get_version_names(self):
@@ -159,14 +163,6 @@ class TrebleClefNoteClue(NoteBaseClue):
 
         super(TrebleClefNoteClue, self).__init__(note_name)
 
-        # Vertical length of note stem
-        self._stem_len = 3
-
-        # Width of printed note, should be even number
-        self._stave_len = 20
-
-        self._note_name = note_name
-
         self._note_stave_idx_map = {
             'F5': 0,
             'E5': 1,
@@ -225,14 +221,6 @@ class BassClefNoteClue(NoteBaseClue):
     def __init__(self, note_name='C3'):
 
         super(BassClefNoteClue, self).__init__(note_name)
-
-        # Vertical length of note stem
-        self._stem_len = 3
-
-        # Width of printed note, should be even number
-        self._stave_len = 20
-
-        self._note_name = note_name
 
         self._note_stave_idx_map = {
             'A3': 0,
