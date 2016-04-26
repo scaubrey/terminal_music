@@ -13,4 +13,4 @@ For help:
 
 Example:
 
-![screenshot](scaubrey.github.com/terminal_music/screenshot.jpg)
+![screenshot](https://github.com/scaubrey/terminal_music/blob/master/screenshot.png)
