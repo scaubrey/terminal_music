@@ -10,3 +10,7 @@ To play:
 For help:
 
 `python terminal_music.py -h`
+
+Example:
+
+![screenshot](scaubrey.github.com/terminal_music/screenshot.jpg)
