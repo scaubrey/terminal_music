@@ -32,10 +32,9 @@ class FlashcardGame(object):
             # Look and feel
             time.sleep(0.5)
 
-            # Get and score the answer
             user_answer = raw_input('What is the note?\t')
 
-            # Validate
+            # Validate and score
             if clue.is_correct_answer(user_answer):
                 self.display_success()
                 self._score += 1

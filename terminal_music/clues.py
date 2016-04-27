@@ -52,9 +52,6 @@ class NoteBaseClue(BaseClue):
         # Override for given clef
         self._note_stave_idx_map = None
 
-    def get_version_names(self):
-        raise NotImplementedError
-
     def get_clef_rows(self):
         raise NotImplementedError
 
