@@ -2,6 +2,13 @@ __author__ = 'Cam'
 
 import random
 
+import math
+import wave
+import subprocess
+import os
+import struct
+import pdb
+
 
 class CluePool(object):
     """
@@ -11,6 +18,8 @@ class CluePool(object):
     def __init__(self):
 
         self._clue_types = [TrebleClefNoteClue, BassClefNoteClue]
+
+        self._clue_types += [IntervalAudioClue]
 
     def get_clue(self):
 
@@ -34,6 +43,109 @@ class BaseClue(object):
         raise NotImplementedError
 
 
+class AudioClue(BaseClue):
+
+    def __init__(self):
+
+        self._sample_frequency = 16e3  # samples/sec
+        self._a4_tuning = 440.0  # hz
+        self._amplitude = 65536 / 4  # 16bit signed
+
+        self._notes = [
+            'A4', 'Bb4', 'B4', 'C5', 'Db5', 'D5', 'Eb5', 'E5', 'F5', 'Gb5', 'G5', 'Ab5', 'A5'
+        ]
+
+        # Equal temperment tuning
+        lower_log = math.log(self._a4_tuning, 2)
+        upper_log = math.log(self._a4_tuning * 2, 2)
+        self._note_freq_map = dict()
+        for i, note in enumerate(self._notes):
+            self._note_freq_map[note] = math.pow(2, lower_log + i / 12.0 * (upper_log - lower_log))
+
+    def get_answer(self):
+
+        raise NotImplementedError
+
+    def is_correct_answer(self, answer):
+
+        raise NotImplementedError
+
+    def get_note_audio(self, note_name, length_sec):
+
+        audio_len = int(self._sample_frequency * length_sec)
+        audio_data = [0] * audio_len
+
+        for i in range(audio_len):
+            float_sample = math.sin(2 * math.pi * self._note_freq_map[note_name] * float(i) / self._sample_frequency)
+            int_scaled_sample = int(float_sample * self._amplitude)
+            audio_data[i] = int_scaled_sample
+
+        return audio_data
+
+
+class IntervalAudioClue(AudioClue):
+
+    def __init__(self, interval_name='A4', mode='default'):
+
+        super(IntervalAudioClue, self).__init__()
+
+        self._note_play_len_sec = 1.0
+        self._interval_name = interval_name
+        self._mode = mode
+        self._interval_semitone_map = {
+            'min2': 1,
+            '2': 2,
+            'min3': 3,
+            '3': 4,
+            '4': 5,
+            'dim5': 6,
+            '5': 7,
+            'aug5': 8,
+            '6': 9,
+            'min7': 10,
+            '7': 11,
+            'oct': 12
+        }
+
+    def get_version_names(self):
+        return self._interval_semitone_map.keys()
+
+    def get_answer(self):
+        return self._interval_name
+
+    def is_correct_answer(self, answer):
+        return self._interval_name == answer
+
+    def display(self):
+        audio_data_lower_note = self.get_note_audio('A4', self._note_play_len_sec)
+
+        upper_note_name = self._notes[self._interval_semitone_map[self._interval_name]]
+
+        audio_data_upper_note = self.get_note_audio(upper_note_name, self._note_play_len_sec)
+
+        if self._mode == 'default':
+            audio_data = audio_data_lower_note + audio_data_upper_note
+        elif self._mode == 'inverse':
+            audio_data = audio_data_upper_note + audio_data_lower_note
+        elif self._mode == 'simultaneous':
+            audio_data = [sum(i) for i in zip(audio_data_lower_note, audio_data_upper_note)]
+
+        tmp_file_path = './tmp.wav'
+
+        wave_writer = wave.open(tmp_file_path, 'wb')
+        wave_writer.setnchannels(2)
+        wave_writer.setframerate(self._sample_frequency)
+        wave_writer.setnframes(len(audio_data))
+        wave_writer.setsampwidth(2)
+
+        for sample in audio_data:
+            wave_writer.writeframes(struct.pack('i', sample))
+
+        subprocess.call(['afplay', tmp_file_path])
+
+        os.remove(tmp_file_path)
+
+
 class NoteBaseClue(BaseClue):
     """
     Class for notes in a clef and associated logic.
@@ -53,9 +165,6 @@ class NoteBaseClue(BaseClue):
         self._note_stave_idx_map = None
 
     def get_clef_rows(self):
-        raise NotImplementedError
-
-    def get_note_rows(self):
         raise NotImplementedError
 
     def get_base_stave_rows(self, stave_len=10):
