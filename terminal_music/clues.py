@@ -1,13 +1,17 @@
 __author__ = 'Cam'
 
 import random
+from itertools import product
 
 import math
 import wave
 import subprocess
 import os
 import struct
-import pdb
+
+from sys import platform
+
+THIS_DIR = os.path.dirname(os.path.realpath(__file__))
 
 
 class CluePool(object):
@@ -15,11 +19,14 @@ class CluePool(object):
     A class for selecting and distributing clue types.
     """
 
-    def __init__(self):
+    def __init__(self, clue_type):
 
-        self._clue_types = [TrebleClefNoteClue, BassClefNoteClue]
-
-        self._clue_types += [IntervalAudioClue]
+        if clue_type == 'note':
+            self._clue_types = [TrebleClefNoteClue, BassClefNoteClue]
+        elif clue_type == 'interval':
+            self._clue_types = [IntervalAudioClue]
+        else:
+            self._clue_types = [TrebleClefNoteClue, BassClefNoteClue, IntervalAudioClue]
 
     def get_clue(self):
 
@@ -42,8 +49,14 @@ class BaseClue(object):
     def display(self):
         raise NotImplementedError
 
+    def get_clue_type(self):
+        raise NotImplementedError
+
 
 class AudioClue(BaseClue):
+    """
+    A clue that plays audio.
+    """
 
     def __init__(self):
 
@@ -52,15 +65,16 @@ class AudioClue(BaseClue):
         self._amplitude = 65536 / 4  # 16bit signed
 
         self._notes = [
-            'A4', 'Bb4', 'B4', 'C5', 'Db5', 'D5', 'Eb5', 'E5', 'F5', 'Gb5', 'G5', 'Ab5', 'A5'
+            'A4', 'Bb4', 'B4', 'C5', 'Db5', 'D5', 'Eb5', 'E5', 'F5', 'Gb5', 'G5', 'Ab5', 'A5', 'Bb5', 'B5'
         ]
 
         # Equal temperment tuning
+        num_octaves = 2
         lower_log = math.log(self._a4_tuning, 2)
-        upper_log = math.log(self._a4_tuning * 2, 2)
+        upper_log = math.log(self._a4_tuning * (2 ** num_octaves), 2)
         self._note_freq_map = dict()
         for i, note in enumerate(self._notes):
-            self._note_freq_map[note] = math.pow(2, lower_log + i / 12.0 * (upper_log - lower_log))
+            self._note_freq_map[note] = math.pow(2, lower_log + i / (num_octaves * 12.0) * (upper_log - lower_log))
 
     def get_answer(self):
 
@@ -71,6 +85,16 @@ class AudioClue(BaseClue):
         raise NotImplementedError
 
     def get_note_audio(self, note_name, length_sec):
+        """
+        Compute sine wav data for a particular music note.
+
+        Args:
+            note_name (str): which note
+            length_sec (): how long to sound
+
+        Returns:
+            list: audio data
+        """
 
         audio_len = int(self._sample_frequency * length_sec)
         audio_data = [0] * audio_len
@@ -82,16 +106,24 @@ class AudioClue(BaseClue):
 
         return audio_data
 
+    def get_clue_type(self):
+        raise NotImplementedError
+
 
 class IntervalAudioClue(AudioClue):
+    """
+    A clue class for identifying musical intervals.
+    """
 
-    def __init__(self, interval_name='A4', mode='default'):
+    def __init__(self, interval_name_mode_combo=('5', 'default')):
 
         super(IntervalAudioClue, self).__init__()
 
+        self.modes = ['default', 'inverse', 'simultaneous']
+
         self._note_play_len_sec = 1.0
-        self._interval_name = interval_name
-        self._mode = mode
+        self._interval_name = interval_name_mode_combo[0]
+        self._mode = interval_name_mode_combo[1]
         self._interval_semitone_map = {
             'min2': 1,
             '2': 2,
@@ -104,19 +136,55 @@ class IntervalAudioClue(AudioClue):
             '6': 9,
             'min7': 10,
             '7': 11,
-            'oct': 12
+            'oct': 12,
+            'min9': 13,
+            '9': 14
+        }
+
+        self._secondary_spellings = {
+            'min2': ['b2'],
+            'min3': ['b3'],
+            'dim5': ['aug4', '#4', 'b5', 'tritone'],
+            'aug5': ['b6', "#5"],
+            'min7': ['b7'],
+            'oct': ['8'],
+            'min9': ['b9'],
         }
 
     def get_version_names(self):
-        return self._interval_semitone_map.keys()
+        """
+        Get combo of all intervals and display modes.
+
+        Returns:
+            list: [(interval name, display mode)]
+        """
+        return list(product(self._interval_semitone_map.keys(), self.modes))
 
     def get_answer(self):
-        return self._interval_name
+        """
+        Get answer and other spellings of interval.
+
+        Returns:
+            str: all possible right answers separated by comma for display
+        """
+        return ', '.join([self._interval_name] + self._secondary_spellings.get(self._interval_name, []))
 
     def is_correct_answer(self, answer):
-        return self._interval_name == answer
+        """
+        Check against all spellings of interval
+
+        Args:
+            answer (str): user answer
+
+        Returns:
+            bool: True if answer correct
+        """
+        return self._interval_name == answer or answer in self._secondary_spellings.get(self._interval_name, [])
 
     def display(self):
+        """
+        Create the audio, write to file, play file, delete file.
+        """
         audio_data_lower_note = self.get_note_audio('A4', self._note_play_len_sec)
 
         upper_note_name = self._notes[self._interval_semitone_map[self._interval_name]]
@@ -130,7 +198,7 @@ class IntervalAudioClue(AudioClue):
         elif self._mode == 'simultaneous':
             audio_data = [sum(i) for i in zip(audio_data_lower_note, audio_data_upper_note)]
 
-        tmp_file_path = './tmp.wav'
+        tmp_file_path = os.path.join(THIS_DIR, 'tmp.wav')
 
         wave_writer = wave.open(tmp_file_path, 'wb')
         wave_writer.setnchannels(2)
@@ -139,11 +207,28 @@ class IntervalAudioClue(AudioClue):
         wave_writer.setsampwidth(2)
 
         for sample in audio_data:
-            wave_writer.writeframes(struct.pack('i', sample))
+            wave_writer.writeframes(struct.pack('h', sample))
+            wave_writer.writeframes(struct.pack('h', sample))
 
-        subprocess.call(['afplay', tmp_file_path])
+        try:
+            if platform == "darwin":
+                subprocess.call(['afplay', tmp_file_path])
+            elif platform == "win32":
+                import winsound
+                winsound.PlaySound(tmp_file_path, winsound.SND_FILENAME)
+        except:
+            print "Sorry, can't seem to play sound :/"
+        finally:
+            os.remove(tmp_file_path)
 
-        os.remove(tmp_file_path)
+    def get_clue_type(self):
+        """
+        Name of clue type for display.
+
+        Returns:
+            str: clue type name
+        """
+        return "Interval"
 
 
 class NoteBaseClue(BaseClue):
@@ -258,6 +343,9 @@ class NoteBaseClue(BaseClue):
                                            '|' +\
                                            base_stave[note_idx - i][: (note_x_pos - (len(note_head) + 1))]
         return base_stave
+
+    def get_clue_type(self):
+        return "Note"
 
 
 class TrebleClefNoteClue(NoteBaseClue):
@@ -378,4 +466,4 @@ class BassClefNoteClue(NoteBaseClue):
         ]
 
 
-# TODO: Additional clue types - Chords, Intervals, etc.
+# TODO: Additional clue types - Chords, Tenor/Alto clef, etc.

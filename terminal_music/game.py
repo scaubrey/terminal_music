@@ -10,11 +10,11 @@ class FlashcardGame(object):
     A class to encapsulate game related logic.
     """
 
-    def __init__(self, num_questions=10):
+    def __init__(self, num_questions=10, clue_type='all'):
 
         self._score = 0
         self._num_questions = num_questions
-        self._clue_pool = clues.CluePool()
+        self._clue_pool = clues.CluePool(clue_type)
 
     def play(self):
         """
@@ -32,7 +32,7 @@ class FlashcardGame(object):
             # Look and feel
             time.sleep(0.5)
 
-            user_answer = raw_input('What is the note?\t')
+            user_answer = raw_input('What is the {}?\t'.format(clue.get_clue_type()))
 
             # Validate and score
             if clue.is_correct_answer(user_answer):
